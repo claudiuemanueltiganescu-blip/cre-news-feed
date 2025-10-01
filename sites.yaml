@@ -1,0 +1,76 @@
+feed:
+  title: "CRE News Tracker"
+  link: "https://<your-username>.github.io/cre-news-feed"
+  description: "Aggregated news and press releases from six CRE companies."
+  language: "en-us"
+  ttl: 30
+
+limit: 60
+state_file: "state.json"
+
+sources:
+  - name: "JLLIPT — Newsroom"
+    type: html
+    url: "https://jllipt.com/resources/news"
+    base_url: "https://jllipt.com"
+    list_selector: "article, a[href*='/resources/news/']"
+    title_selector: "h2, h3"
+    link_selector: "a[href]"
+    date_selector: "time, .date, .published, .posted-on"
+    date_attr: "datetime"
+    description_selector: "p"
+
+  - name: "L+M Development Partners — News"
+    type: html
+    url: "https://lmdevpartners.com/news-awards/news/"
+    base_url: "https://lmdevpartners.com"
+    list_selector: "article, .post, li.news-item, a[href*='/news-awards/']"
+    title_selector: "h2, h3, .entry-title, .card-title"
+    link_selector: "a[href]"
+    date_selector: "time, .date, .posted-on"
+    date_attr: "datetime"
+    description_selector: "p, .entry-summary"
+
+  - name: "CBRE — Las Vegas Press Releases"
+    type: html
+    url: "https://www.cbre.com/offices/corporate/las-vegas"
+    base_url: "https://www.cbre.com"
+    list_selector: "article, [id*='press'], a[href^='/press-releases/']"
+    title_selector: "h2, h3"
+    link_selector: "a[href^='/press-releases/'], a[href]"
+    date_selector: "time, .date"
+    date_attr: "datetime"
+    description_selector: "p"
+
+  - name: "Ryan Companies — News"
+    type: html
+    url: "https://www.ryancompanies.com/news"
+    base_url: "https://www.ryancompanies.com"
+    list_selector: "article, .node--type-news, .views-row, a[href^='/news/']"
+    title_selector: "h2, h3"
+    link_selector: "a[href^='/news/'], a[href]"
+    date_selector: "time, .date, .published"
+    date_attr: "datetime"
+    description_selector: "p"
+
+  - name: "SRS — News & Press"
+    type: html
+    url: "https://srsre.com/news"
+    base_url: "https://srsre.com"
+    list_selector: "article, .post, .news-item, a[href*='/media-center/news/'], a[href*='/media-center/press-release/']"
+    title_selector: "h2, h3, .title"
+    link_selector: "a[href*='/media-center/'], a[href^='/news/'], a[href]"
+    date_selector: "time, .date, .published"
+    date_attr: "datetime"
+    description_selector: "p, .excerpt"
+
+  - name: "Hines — Press Releases"
+    type: html
+    url: "https://www.hines.com/news/category/press-releases"
+    base_url: "https://www.hines.com"
+    list_selector: "article, .news-card, .post, a[href^='/news/']"
+    title_selector: "h2, h3, .news-card__title, .entry-title"
+    link_selector: "a[href^='/news/'], a[href]"
+    date_selector: "time, .date, .published"
+    date_attr: "datetime"
+    description_selector: "p, .teaser, .excerpt"
