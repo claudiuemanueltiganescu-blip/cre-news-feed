@@ -1,9 +1,21 @@
 name: Build & Publish Feed
 
 on:
-  schedule:
-    - cron: "*/30 * * * *"  # every 30 minutes
+  push:
+    branches: [main]
   workflow_dispatch:
+  schedule:
+    - cron: "*/30 * * * *"
+
+# ← These permissions are REQUIRED for Pages deploy
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -23,11 +35,18 @@ jobs:
       - name: Build feed
         run: python make_feed.py -c sites.yaml -o feed.xml
 
-      - name: Publish to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v3
+      - name: Upload artifact for Pages
+        uses: actions/upload-pages-artifact@v3
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: .
-          # Keep repo clean and just publish feed + index (ignore caches, etc.)
-          enable_jekyll: false
-          
+          path: .  # publishes index.html + feed.xml
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
