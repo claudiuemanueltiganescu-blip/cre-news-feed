@@ -1,16 +1,213 @@
 <!doctype html>
-<html>
-  <head>
-    <meta charset="utf-8">
-    <title>CRE News Tracker</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-  </head>
-  <body>
-    <main style="max-width:680px;margin:40px auto;font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;line-height:1.5;">
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CRE News Tracker</title>
+  <link rel="alternate" type="application/rss+xml" title="RSS" href="feed.xml" />
+  <style>
+    :root {
+      --bg: #0b0f14;
+      --card: #121821;
+      --muted: #94a3b8;
+      --text: #e5e7eb;
+      --accent: #60a5fa;
+      --ring: #1f2937;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; background: var(--bg); color: var(--text);
+      font: 15px/1.55 system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+    }
+    header {
+      position: sticky; top: 0; z-index: 20;
+      backdrop-filter: saturate(140%) blur(8px);
+      background: color-mix(in oklab, var(--bg) 88%, transparent);
+      border-bottom: 1px solid var(--ring);
+    }
+    .wrap { max-width: 980px; margin: 0 auto; padding: 20px; }
+    h1 { font-size: 28px; margin: 8px 0 4px; letter-spacing: .2px; }
+    .sub { color: var(--muted); margin: 0 0 6px; }
+    .toolbar {
+      display: grid; grid-template-columns: 1fr auto auto; gap: 10px; align-items: center; margin-top: 10px;
+    }
+    .search { width: 100%; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--ring); background: var(--card); color: var(--text); }
+    .btn {
+      appearance: none; border: 1px solid var(--ring); background: var(--card); color: var(--text);
+      padding: 10px 14px; border-radius: 12px; cursor: pointer; transition: transform .04s ease, background .2s;
+    }
+    .btn:hover { background: #1a2330; }
+    .btn:active { transform: translateY(1px); }
+    main { padding: 18px 0 42px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
+    article.card {
+      background: var(--card); border: 1px solid var(--ring); border-radius: 16px; padding: 16px; display: grid; gap: 10px;
+    }
+    .title { font-weight: 650; font-size: 16px; margin: 0; }
+    .title a { color: inherit; text-decoration: none; }
+    .title a:hover { color: var(--accent); text-decoration: underline; }
+    .meta { color: var(--muted); font-size: 12px; display: flex; gap: 8px; align-items: center; }
+    .desc { color: #c7d2fe; font-size: 14px; margin: 4px 0 0; }
+    .status { margin: 14px 0; color: var(--muted); }
+    footer { border-top: 1px solid var(--ring); color: var(--muted); }
+    .pill { border: 1px solid var(--ring); padding: 4px 8px; border-radius: 999px; }
+    .link { color: var(--accent); }
+    .empty { text-align: center; padding: 40px 0; color: var(--muted); }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap">
       <h1>CRE News Tracker</h1>
-      <p>This page automatically builds a combined RSS feed from six CRE websites.</p>
-      <p><a href="feed.xml">View the RSS feed (feed.xml)</a></p>
-      <p>Subscribe by copying the link above into your RSS reader.</p>
-    </main>
-  </body>
+      <p class="sub">Live view of <code>feed.xml</code>. Subscribe via your RSS reader or browse items below.</p>
+      <div class="toolbar">
+        <input id="q" class="search" type="search" placeholder="Search titles & descriptions…" />
+        <button id="refresh" class="btn" title="Reload feed">↻ Refresh</button>
+        <a class="btn" href="feed.xml" target="_blank" rel="noopener">RSS Feed</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <div id="status" class="status">Loading feed…</div>
+    <div id="grid" class="grid" hidden></div>
+    <div id="empty" class="empty" hidden>No results.</div>
+  </main>
+
+  <footer>
+    <div class="wrap" style="display:flex; gap:8px; align-items:center; justify-content:space-between; flex-wrap:wrap;">
+      <div>Published via <span class="pill">GitHub Pages</span></div>
+      <div><a class="link" href="feed.xml">feed.xml</a></div>
+    </div>
+  </footer>
+
+  <script>
+    const FEED_URL = 'feed.xml';
+
+    const state = { items: [], filtered: [], query: '' };
+
+    const els = {
+      grid: document.getElementById('grid'),
+      status: document.getElementById('status'),
+      empty: document.getElementById('empty'),
+      q: document.getElementById('q'),
+      refresh: document.getElementById('refresh'),
+    };
+
+    function fmtDate(d) {
+      try {
+        const dt = new Date(d);
+        return dt.toLocaleString(undefined, { year: 'numeric', month: 'short', day: '2-digit' });
+      } catch { return d; }
+    }
+
+    function sourceFromLink(link) {
+      try {
+        const u = new URL(link);
+        return u.hostname.replace('www.', '');
+      } catch { return ''; }
+    }
+
+    function render() {
+      const { filtered } = state;
+      els.grid.innerHTML = '';
+      if (!filtered.length) {
+        els.grid.hidden = true;
+        els.empty.hidden = false;
+        return;
+      }
+      const frag = document.createDocumentFragment();
+      for (const it of filtered) {
+        const art = document.createElement('article');
+        art.className = 'card';
+        const h = document.createElement('h3');
+        h.className = 'title';
+        const a = document.createElement('a');
+        a.href = it.link || '#';
+        a.target = '_blank'; a.rel = 'noopener noreferrer';
+        a.textContent = it.title || '(untitled)';
+        h.appendChild(a);
+        const meta = document.createElement('div');
+        meta.className = 'meta';
+        meta.innerHTML = `<span class="pill">${sourceFromLink(it.link)}</span><span>•</span><time>${fmtDate(it.pubDate || it.updated || it.published)}</time>`;
+        const desc = document.createElement('p');
+        desc.className = 'desc';
+        desc.textContent = (it.description || '').replace(/\s+/g, ' ').trim().slice(0, 280);
+        art.append(h, meta);
+        if (desc.textContent) art.append(desc);
+        frag.appendChild(art);
+      }
+      els.grid.appendChild(frag);
+      els.grid.hidden = false;
+      els.empty.hidden = true;
+    }
+
+    function applyFilter() {
+      const q = state.query.trim().toLowerCase();
+      if (!q) { state.filtered = [...state.items]; render(); return; }
+      state.filtered = state.items.filter(it => {
+        const hay = [it.title, it.description, it.link].filter(Boolean).join(' ').toLowerCase();
+        return hay.includes(q);
+      });
+      render();
+    }
+
+    async function loadFeed() {
+      els.status.textContent = 'Loading feed…';
+      els.status.hidden = false;
+      els.grid.hidden = true;
+      els.empty.hidden = true;
+      try {
+        // bust caches during development, keep in prod if you like
+        const res = await fetch(FEED_URL + '?t=' + Date.now());
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const xmlText = await res.text();
+        const doc = new DOMParser().parseFromString(xmlText, 'application/xml');
+
+        // Detect parsererror
+        if (doc.querySelector('parsererror')) throw new Error('Invalid XML in feed');
+
+        const isAtom = !!doc.querySelector('feed > entry');
+        const items = [];
+        if (isAtom) {
+          doc.querySelectorAll('feed > entry').forEach(e => {
+            items.push({
+              title: e.querySelector('title')?.textContent?.trim(),
+              link: e.querySelector('link')?.getAttribute('href') || '',
+              description: e.querySelector('summary')?.textContent || e.querySelector('content')?.textContent || '',
+              pubDate: e.querySelector('updated')?.textContent || e.querySelector('published')?.textContent || '',
+            });
+          });
+        } else {
+          doc.querySelectorAll('rss > channel > item').forEach(e => {
+            items.push({
+              title: e.querySelector('title')?.textContent?.trim(),
+              link: e.querySelector('link')?.textContent?.trim(),
+              description: e.querySelector('description')?.textContent || '',
+              pubDate: e.querySelector('pubDate')?.textContent || '',
+            });
+          });
+        }
+        // sort newest first by date fallback to title
+        items.sort((a, b) => new Date(b.pubDate || 0) - new Date(a.pubDate || 0));
+        state.items = items;
+        state.filtered = items;
+        els.status.hidden = true;
+        render();
+      } catch (err) {
+        console.error(err);
+        els.status.textContent = 'Could not load the feed. Open feed.xml directly or try again.';
+      }
+    }
+
+    els.q.addEventListener('input', (e) => {
+      state.query = e.target.value;
+      applyFilter();
+    });
+    els.refresh.addEventListener('click', loadFeed);
+
+    // Auto-load
+    loadFeed();
+  </script>
+</body>
 </html>
